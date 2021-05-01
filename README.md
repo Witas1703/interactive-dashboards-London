@@ -1,4 +1,7 @@
 # interactive-dashboards-London
+Interactive dashboard (or at least its sketch) can be found here:
+https://wtaisner.shinyapps.io/interactive-dashboards-London/
+
 Source of data:
  - https://data.london.gov.uk/dataset/animal-rescue-incidents-attended-by-lfb
  - https://data.london.gov.uk/dataset/google-mobility-by-borough
