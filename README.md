@@ -1,6 +1,5 @@
 # interactive-dashboards-London
 Source of data:
- - https://data.london.gov.uk/dataset/london-average-air-quality-levels#
  - https://data.london.gov.uk/dataset/animal-rescue-incidents-attended-by-lfb
  - https://data.london.gov.uk/dataset/google-mobility-by-borough
  - https://data.london.gov.uk/dataset/covid-19-restrictions-timeseries
