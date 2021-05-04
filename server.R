@@ -1,9 +1,9 @@
 library(shiny)
 library(dplyr)
+library(ggplot2)
 
 shinyServer(function(input, output) {
   animalsRescue = read.csv("data/animal_rescue_incidents_LFB.csv")
-  animalsRescue %>% select(- one_of("IncidentNumber"))
-   output$animals = renderDataTable({animalsRescue})
-
+  output$animals = renderDataTable({animalsRescue})
+  
 })
