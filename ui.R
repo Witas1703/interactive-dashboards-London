@@ -22,7 +22,7 @@ dashboardPage(
             h3("Add random text or something idk")),
     tabItem(tabName = "1", 
             h3("test table"),
-            dataTableOutput("animals")),
+            dataTableOutput("table")),
     tabItem(tabName = "2",
             h3("Add visualization")),
     tabItem(tabName = "3",

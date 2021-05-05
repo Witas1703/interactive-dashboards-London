@@ -6,22 +6,13 @@ library(forcats)
 library(ggridges)
 
 # Animals ------------------------------------------------------------------------------------------------------------------------------------
-animals = read.csv("data/animal_rescue_incidents_LFB.csv")
+animals = read.csv("data/animal_rescue_incidents_LFB.csv", header = TRUE, na.strings = c("NULL"))
 animals = as.data.frame(sapply(animals, tolower)) # change all records into lowercase (there are same words written in CAPITAL and lowercase)
-
 animals = select(animals,-c("IncidentNumber", "FinYear", "TypeOfIncident")) # drop useless columns
+animals <- animals[!grepl("unknown ", animals$AnimalGroupParent), ] # removing records with unknown animal type
 
-animals <-
-  animals[!grepl("unknown ", animals$AnimalGroupParent), ] # removing records with unknown animal type
 
-# tutaj znowu wybierana dzielnica/typ zwierzęcia ? w sumie losowy wykres z mojej strony
-ggplot(
-  animals %>% filter(Borough == "westminster"),
-  aes(AnimalGroupParent, OriginofCall, color = AnimalGroupParent)
-) +
-  geom_count() +
-  facet_wrap( ~ SpecialServiceTypeCategory) +
-  theme_classic()
+
 
 # Activity -------------------------------------------------------------------------------------------------------------------------------------
 activity = read.csv("data/google_activity_by_London_Borough.csv")
@@ -64,14 +55,24 @@ ggplot(activity, aes(date)) +
 # Timeseries -----------------------------------------------------------------------------------------------------------------
 
 restrictions = read.csv("data/restrictions_timeseries/restrictions_summary.csv")
-restrictions <- select(restrictions,-c("source"))
+
+restrictionsTable <- restrictions %>% 
+  mutate(across("schools_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+  mutate(across("pubs_closed", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+  mutate(across("shops_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+  mutate(across("eating_places_closed", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+  mutate(across("stay_at_home", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+  mutate(across("household_mixing_indoors_banned", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+  mutate(across("wfh", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+  mutate(across("rule_of_6_indoors", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+  mutate(across("curfew", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+  mutate(across("eat_out_to_help_out", ~factor(., levels=c(0,1), labels=c("no","yes")))) 
 
 
 activity$date <- as.character(activity$date)
 restrictions$date <- as.character(restrictions$date)
 #df <- left_join(activity, restrictions, by = c("date" = "date"))
 #df <- df %>% fill(restriction)
-
 
 
 data_long2 <-
@@ -107,13 +108,13 @@ data_long2 <- data_long2 %>% mutate(
 )
 
 # timeseries + activities on one plot !!!!
-# czy zrobić coś z osią Y, gdzie jest dużo napisów?
+# czy zrobić coś z osią X, gdzie jest dużo napisów?
 # tutaj w założeniu wybiera się dzielnicę
 ggplot(
   data_long2 %>% filter(area_name == 'Westminster'),
-  aes(x = value, y = restriction, fill = Description)
+  aes(x = restriction, y = value, fill = Description)
 ) +
-  geom_density_ridges(alpha = 0.7) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
   labs(title = "Change") +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
