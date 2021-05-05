@@ -4,7 +4,7 @@ library(tidyr)
 library(ggpubr)
 library(forcats)
 library(ggridges)
-
+library(readxl)
 # Animals ------------------------------------------------------------------------------------------------------------------------------------
 animals = read.csv("data/animal_rescue_incidents_LFB.csv", header = TRUE, na.strings = c("NULL"))
 animals = as.data.frame(sapply(animals, tolower)) # change all records into lowercase (there are same words written in CAPITAL and lowercase)
@@ -16,30 +16,12 @@ animals <- animals[!grepl("unknown ", animals$AnimalGroupParent), ] # removing r
 
 # Activity -------------------------------------------------------------------------------------------------------------------------------------
 activity = read.csv("data/google_activity_by_London_Borough.csv")
-names(activity) <-
-  sub("_percent_change_from_baseline", "", names(activity)) # remove annoying postfix
+names(activity) <- sub("_percent_change_from_baseline", "", names(activity)) # remove annoying postfix
 
 # transform data, so that is can be better facet_wraped; move columns describing industry branches into one attribute called "Description"
 # and its value in "value" column
 data_long <- activity %>%
   gather(Description, value, retail_and_recreation:residential)
-
-# w tym wykresie tak: użytkownik wybiera dzielnicę, pojawia się jeden z tych cudownych wykresików ze wszystkimi danymi
-# (może zamiast geom_bar dać linie, nie wiem)
-# no i tutaj myślałem, żeby na osi z datą zmienić milion dat na te dane kiedy było co wprowadzone,
-# czyli np. zamiast 10.10.2020 dajemy tam Lockdown 1
-# ggplot(
-#   data_long %>% filter(area_name == 'Westminster'),
-#   aes(x = date, y = value, fill = Description),
-#   xlab = ""
-# ) +
-#   geom_bar(stat = "identity",
-#            width = .5,
-#            position = "dodge") +
-#   labs(title = "Change") +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-#   scale_x_discrete(breaks = levels(data_long$date)[c(T, rep(F, 15))])
-
 
 # XD
 ggplot(activity, aes(date)) +
@@ -56,24 +38,21 @@ ggplot(activity, aes(date)) +
 
 restrictions = read.csv("data/restrictions_timeseries/restrictions_summary.csv")
 
-restrictionsTable <- restrictions %>% 
-  mutate(across("schools_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
-  mutate(across("pubs_closed", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
-  mutate(across("shops_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
-  mutate(across("eating_places_closed", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
-  mutate(across("stay_at_home", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
-  mutate(across("household_mixing_indoors_banned", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
-  mutate(across("wfh", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
-  mutate(across("rule_of_6_indoors", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
-  mutate(across("curfew", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
-  mutate(across("eat_out_to_help_out", ~factor(., levels=c(0,1), labels=c("no","yes")))) 
-
+# already done in server.R
+# restrictionsTable <- restrictions %>% 
+#   mutate(across("schools_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+#   mutate(across("pubs_closed", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+#   mutate(across("shops_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+#   mutate(across("eating_places_closed", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+#   mutate(across("stay_at_home", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+#   mutate(across("household_mixing_indoors_banned", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+#   mutate(across("wfh", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+#   mutate(across("rule_of_6_indoors", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
+#   mutate(across("curfew", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
+#   mutate(across("eat_out_to_help_out", ~factor(., levels=c(0,1), labels=c("no","yes")))) 
 
 activity$date <- as.character(activity$date)
 restrictions$date <- as.character(restrictions$date)
-#df <- left_join(activity, restrictions, by = c("date" = "date"))
-#df <- df %>% fill(restriction)
-
 
 data_long2 <-
   left_join(data_long, restrictions, by = c("date" = "date"))
@@ -119,3 +98,38 @@ ggplot(
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   facet_wrap(~Description) 
+
+# Crime -------------------------------------------------------------------------------------------------------------------------------
+# crime21 = read_excel("data/crime/MPS Use of Force - FY20-21.xlsx", na = "NA")
+# crime20 = read_excel("data/crime/MPS Use of Force - FY19-20.xlsx", na = "NA")
+# crime19 = read_excel("data/crime/MPS Use of Force - FY18-19.xlsx", na = "NA")
+# 
+# crime21 <- crime21[-c(59:271)] # basically dropping plenty of rather worthless and uninteresting columns, please forgive me Lord Morzy
+# crime20 <- crime20[-c(59:271)]
+# crime19 <- crime19[-c(59:269)]
+# 
+# crime = bind_rows(crime21, crime20, crime19) # ah yes, the final database to visualize
+# 
+# names(crime) <- sub("Incident Location: ", "", names(crime)) # remove annoying prefixes
+# names(crime) <- sub("Impact Factor: ", "Cause ", names(crime)) # change prefix
+# names(crime) <- sub("Reason for Force: ", "Reason for force ", names(crime)) # change prefix
+# names(crime) <- gsub(" ", "_", names(crime)) # substitute " " with "_"
+# names(crime) <- tolower(names(crime)) 
+
+# below code: transform crime dataframe so that it has column 'place' with values, i.e street/highway, then removes rows, which do not
+# correspond to place
+# crime_long <- crime %>%
+#   gather(place, value, 'street/highway':other)
+# crime_long <- crime_long[!(crime_long$value == "No"),]
+
+
+crime = read.csv("data/crime/crimeProcessed.csv")
+crime <- select(crime, -c('value'))
+
+# to nie jest dobra ścieżka
+crime_long <- crime_long %>%
+  gather(cause, value, cause_possesion_of_a_weapon:cause_other)
+crime_long <- crime_long[!(crime_long$value == "No"),]
+crime_long <- select(crime_long, -c('value'))
+
+# write.csv(crime_long, "data/crime/crimeProcessed.csv")
