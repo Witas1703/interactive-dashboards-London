@@ -5,9 +5,11 @@ library(ggpubr)
 library(forcats)
 library(ggridges)
 library(readxl)
+library(httr) # reading xlsx from URL
+library(plotly)
 # Animals ------------------------------------------------------------------------------------------------------------------------------------
 animals = read.csv(
-  "data/animal_rescue_incidents_LFB.csv",
+  url("https://data.london.gov.uk/download/animal-rescue-incidents-attended-by-lfb/8a7d91c2-9aec-4bde-937a-3998f4717cd8/Animal%20Rescue%20incidents%20attended%20by%20LFB%20from%20Jan%202009.csv"),
   header = TRUE,
   na.strings = c("NULL")
 )
@@ -20,7 +22,7 @@ animals <-
 
 
 # Activity -------------------------------------------------------------------------------------------------------------------------------------
-activity = read.csv("data/google_activity_by_London_Borough.csv")
+activity = read.csv(url("https://data.london.gov.uk/download/google-mobility-by-borough/26d5821b-fcb6-4aae-af73-ee0596942d16/google_activity_by_London_Borough.csv"))
 names(activity) <-
   sub("_percent_change_from_baseline", "", names(activity)) # remove annoying postfix
 
@@ -42,7 +44,7 @@ ggplot(activity, aes(date)) +
 
 # Timeseries -----------------------------------------------------------------------------------------------------------------
 
-restrictions = read.csv("data/restrictions_timeseries/restrictions_summary.csv")
+restrictions = read.csv(url("https://data.london.gov.uk/download/covid-19-restrictions-timeseries/03073b4a-2f5d-4a0a-be90-4fe3d9f609c9/restrictions_summary.csv"))
 
 # already done in server.R
 # restrictionsTable <- restrictions %>%
@@ -92,28 +94,44 @@ data_long2 <- data_long2 %>% mutate(
   )
 )
 
-# timeseries + activities on one plot !!!!
-# czy zrobić coś z osią X, gdzie jest dużo napisów?
-# tutaj w założeniu wybiera się dzielnicę
-ggplot(
+
+# TODO: change X axis so that it is more readable
+# TODO: change labels
+# TODO: change values to %, and show negative (?)
+# Assumption is that a user can choose a borough, for which he or she will see the change
+# of course, mouseover should show exact value and so on
+
+# can be shown with the table of restrictions timeseries
+p <- ggplot(
   data_long2 %>% filter(area_name == 'Westminster'),
-  aes(x = restriction, y = value, fill = Description)
-) +
+  aes(x = restriction, y = value, fill = Description)) +
   geom_bar(stat = "identity",
            position = "dodge",
            width = 0.7) +
   labs(title = "Change") +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   facet_wrap( ~ Description)
+ggplotly(p)
+
+plot_ly(data = (data_long2 %>% filter(area_name == "Westminster")), type = "bar", x = ~restriction, y = ~value, color = ~Description)
+
+data_long2 %>% 
+  filter(area_name == "Westminster") %>%
+  group_by(Description) %>%
+  do(p = plot_ly(., x = ~restriction, y = ~value, color = ~Description, type = "bar", colors = "Dark2")) %>%
+  subplot(nrows = 1, shareX = TRUE, shareY = TRUE)
+
 
 # Crime -------------------------------------------------------------------------------------------------------------------------------
-crime21 = read_excel("data/crime/MPS Use of Force - FY20-21.xlsx", na = "NA")
-crime20 = read_excel("data/crime/MPS Use of Force - FY19-20.xlsx", na = "NA")
-crime19 = read_excel("data/crime/MPS Use of Force - FY18-19.xlsx", na = "NA")
+GET("https://data.london.gov.uk/download/use-of-force/9d266ef1-7376-4eec-bb0d-dfbd2b1a591e/MPS%20Use%20of%20Force%20-%20FY20-21.xlsx", write_disk(tf1 <- tempfile(fileext = ".xlsx")))
+crime21 = read_excel(tf1, na = "NA")
+GET("https://data.london.gov.uk/download/use-of-force/2aa0d839-add7-46c1-a168-e62d33323228/MPS%20Use%20of%20Force%20-%20FY19-20.xlsx", write_disk(tf2 <- tempfile(fileext = ".xlsx")))
+crime20 = read_excel(tf2, na = "NA")
+GET("https://data.london.gov.uk/download/use-of-force/727e768a-a8fe-4c06-bfa3-ac61930bfa78/MPS%20Use%20of%20Force%20-%20FY18-19.xlsx", write_disk(tf3 <- tempfile(fileext = ".xlsx")))
+crime19 = read_excel(tf3, na = "NA")
 
-crime21 <-
-  crime21[-c(59:271)] # basically dropping plenty of rather worthless and uninteresting columns, please forgive me Lord Morzy
+crime21 <-crime21[-c(59:271)] # basically dropping plenty of rather worthless and uninteresting columns, please forgive me Lord Morzy
 crime20 <- crime20[-c(59:271)]
 crime19 <- crime19[-c(59:269)]
 
@@ -159,9 +177,10 @@ ggplot(crime %>% filter(borough == "Bexley"), aes(y = mainduty, x = primarycondu
   facet_wrap(~year) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggplot(crime %>% filter(borough == "Sutton"), aes(x = place, y = tactic_1, color = effective_1)) +
+ggplot(crime %>% filter(tactic_1 == "Non-compliant handcuffing"), aes(x = place, y = primaryconduct, color = effective_1)) +
   geom_jitter() + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~year)
 
 
 
