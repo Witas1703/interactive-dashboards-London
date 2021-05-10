@@ -26,10 +26,9 @@ covid.comparison = covid.comparison %>% group_by(area_name, month) %>%
 
 
 covid.cases = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/151e497c-a16e-414e-9e03-9e428f555ae9/phe_cases_london_boroughs.csv"))
-covid.cases = mutate(covid.cases, month = substring(date,1,7)) %>% select(-date)
+covid.cases = mutate(covid.cases, month = substring(date,1,7)) %>% select(-c("date", "new_cases"))
 covid.cases = covid.cases %>% group_by(month, area_name, area_code) %>% 
-  summarize_each(funs(sum, max)) %>% select(-c("total_cases_sum", "new_cases_max")) %>%
-  rename(total_cases = total_cases_max) %>% rename(new_cases = new_cases_sum)
+  summarize_each(funs(max)) 
 
 
 ldn = readOGR("data/covid/london", layer = "london")
@@ -53,18 +52,8 @@ covid.cases = left_join(covid.cases, borough_and_id, by = "area_name")
 
 ldn_f = left_join(ldn_f, covid.cases, by="id")
 
-map = ggplot(filter(ldn_f, month == "2021-03"), 
-             aes(long, lat, group = area_name, fill = total_cases)) +
-  geom_polygon(color = "black") +
-  coord_equal() + theme_transparent()
-map
-
-map  = ggplotly (map)
-
-map
 
 
-months = unique(ldn_f$month)
 
 england = readOGR("data/covid/england", layer = "eng")
 england_f = fortify(england)
@@ -76,12 +65,21 @@ covid.eng = covid.london_england
 covid.eng = left_join(covid.eng, region_and_id, by = "area_name")
 england_f = left_join(england_f, covid.eng, by="id") %>% rename(total_cases = cases)
 
-map = ggplot(filter(england_f, month == "2020-11"), 
-             aes(long, lat, customdata = area_name, fill = total_cases, group = group)) +
-  geom_polygon(color = "black") +
-  coord_equal() + theme_transparent()
-ggplotly(map)
+months = unique(ldn_f$month)[unique(ldn_f$month) %in% unique(england_f$month)]
+months = months[months %in% unique(covid.comparison$month)]
 
+down_ldn = min(ldn_f$total_cases)
+up_ldn = max(ldn_f$total_cases)
+down_eng = 0
+up_eng = max(england_f$total_cases)
+
+ldn_f = ldn_f  %>% spread(month,total_cases)
+england_f = england_f %>% spread(month, total_cases)
+covid.comparison = covid.comparison %>% spread(month, cases)
+
+ldn_f[is.na(ldn_f)] = 0
+england_f[is.na(england_f)] = 0
+covid.comparison[is.na(covid.comparison)] = 0
 
 
 
@@ -102,81 +100,73 @@ ui <- dashboardPage(
                                     choices = months,
                                     selected = months[1],
                                     animate = T),
-                    plotOutput("pie")
+                    plotlyOutput("pie")
                 )
               ),
               fluidRow(
-                box(width = 12, 
-                  sliderTextInput("date", 
-                                  "Select date:", 
-                                  choices = months,
-                                  selected = months[1],
-                                  animate = T),
-                  plotlyOutput("map")
-                )
-              ),
-              fluidRow(
-                box(width = 12, 
-                    sliderTextInput("date_eng", 
-                                    "Select date:", 
-                                    choices = months,
-                                    selected = months[1],
-                                    animate = T),
-                    plotlyOutput("map_eng")
-                )
+                uiOutput("plot")
               )
-              
       )
-  )))
-  
-down = min(ldn_f$total_cases)
-up = max(ldn_f$total_cases)
-down_eng = min(england_f$total_cases)
-up_eng = max(england_f$total_cases)
+    )))
+
+
 server <- shinyServer(function(input, output) {
   
-  output$map <- renderPlotly({
+  output$pie <- renderPlotly({
+    g = plot_ly(covid.comparison, labels = ~area_name, 
+                values = ~.data[[input$month]], type = "pie",
+                textposition = 'inside',
+                textinfo = 'label',
+                insidetextfont = list(color = '#FFFFFF'),
+                showlegend = F)
+    g %>% event_register("plotly_click")
     
-    data = filter(ldn_f, month == input$date)
-    map = ggplot(data, 
-                 aes(customdata = area_name, group = group, x = long, y = lat, fill = total_cases,
-                 )) +
-      geom_polygon(color = "black") +
-      scale_fill_continuous(limits = c(down,up)) +
-      coord_equal() + theme_transparent() 
+  })
+  
+  output$plot <- renderUI({
     
-    map = ggplotly(map)
-    map
+    d = event_data("plotly_click")$pointNumber
+    if(!is.null(d)){
+      if(d == 0){
+        output$map <- renderPlotly({
+          map = ggplot(ldn_f, 
+                       aes(customdata = area_name, group = group, x = long, y = lat, fill = .data[[input$date]],
+                       )) +
+            geom_polygon(color = "black") +
+            scale_fill_continuous(limits = c(down_ldn,up_ldn)) +
+            coord_equal() + theme_transparent() 
+          map = ggplotly(map)
+          map
+        })
+      }
+      else{
+        output$map <- renderPlotly({
+          map = ggplot(england_f, 
+                       aes(customdata = area_name, group = group, x = long, y = lat, fill = .data[[input$date]],
+                       )) +
+            geom_polygon(color = "black") +
+            scale_fill_continuous(limits = c(down_eng,up_eng)) +
+            coord_equal() + theme_transparent() 
+          
+          map = ggplotly(map)
+          map
+          
+        })
+      }
+      box(width = 12, 
+          sliderTextInput("date", 
+                          "Select date:", 
+                          choices = months,
+                          selected = months[1],
+                          animate = T),
+          plotlyOutput("map")
+      )
+      
+    }
     
     
     
   })
-  
-  output$pie <- renderPlot({
-    g = ggplot(filter(covid.comparison, month == input$month), aes(x=area_name, y=cases, fill=area_name)) +
-      geom_bar(stat="identity", width=1, color="white") +
-      theme_classic()
-    g
-    
-  })
-  
-  output$map_eng <- renderPlotly({
-    data = filter(england_f, month == input$date_eng)
-    map = ggplot(data, 
-                 aes(customdata = area_name, group = group, x = long, y = lat, fill = total_cases,
-                 )) +
-      geom_polygon(color = "black") +
-      scale_fill_continuous(limits = c(down_eng,up_eng)) +
-      coord_equal() + theme_transparent() 
-    
-    map = ggplotly(map)
-    map
-    
-  })
-  
-  
-  
-  
   
 })
 shinyApp(ui = ui, server = server)
