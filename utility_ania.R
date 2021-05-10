@@ -42,7 +42,7 @@ ldn@polygons[[21]]@Polygons[[1]]@coords = new_c
 
 borough_and_id = ldn@data %>% as_tibble() %>% mutate(id = as.character(row_number()-1)) %>%
   select(c("id", "name")) %>% filter(name != "City of London") %>% rename(area_name = name)
-borough_and_id[borough_and_id == "Hackney"] = "Hackney and City of London"
+borough_and_id$area_name[borough_and_id$area_name == "Hackney"] = "Hackney and City of London"
 
 ldn_f = fortify(ldn) %>% filter (id != 32)
 
