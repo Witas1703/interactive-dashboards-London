@@ -19,6 +19,7 @@ covid.london_england = covid.london_england %>% group_by(area_name, month) %>%
   summarize_each(funs(max))
 
 covid.comparison = covid.london_england
+covid.comparison$area_name <- as.character(covid.comparison$area_name)
 covid.comparison$area_name[covid.comparison$area_name != "London"] = "Rest of England"
 covid.comparison = covid.comparison %>% group_by(area_name, month) %>%
   summarize_each(funs(sum)) %>% filter(month != "2020-01")
