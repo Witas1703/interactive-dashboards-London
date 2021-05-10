@@ -6,17 +6,23 @@ library(forcats)
 library(ggridges)
 library(readxl)
 # Animals ------------------------------------------------------------------------------------------------------------------------------------
-animals = read.csv("data/animal_rescue_incidents_LFB.csv", header = TRUE, na.strings = c("NULL"))
+animals = read.csv(
+  "data/animal_rescue_incidents_LFB.csv",
+  header = TRUE,
+  na.strings = c("NULL")
+)
 animals = as.data.frame(sapply(animals, tolower)) # change all records into lowercase (there are same words written in CAPITAL and lowercase)
-animals = select(animals,-c("IncidentNumber", "FinYear", "TypeOfIncident")) # drop useless columns
-animals <- animals[!grepl("unknown ", animals$AnimalGroupParent), ] # removing records with unknown animal type
+animals = select(animals, -c("IncidentNumber", "FinYear", "TypeOfIncident")) # drop useless columns
+animals <-
+  animals[!grepl("unknown ", animals$AnimalGroupParent),] # removing records with unknown animal type
 
 
 
 
 # Activity -------------------------------------------------------------------------------------------------------------------------------------
 activity = read.csv("data/google_activity_by_London_Borough.csv")
-names(activity) <- sub("_percent_change_from_baseline", "", names(activity)) # remove annoying postfix
+names(activity) <-
+  sub("_percent_change_from_baseline", "", names(activity)) # remove annoying postfix
 
 # transform data, so that is can be better facet_wraped; move columns describing industry branches into one attribute called "Description"
 # and its value in "value" column
@@ -39,7 +45,7 @@ ggplot(activity, aes(date)) +
 restrictions = read.csv("data/restrictions_timeseries/restrictions_summary.csv")
 
 # already done in server.R
-# restrictionsTable <- restrictions %>% 
+# restrictionsTable <- restrictions %>%
 #   mutate(across("schools_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
 #   mutate(across("pubs_closed", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
 #   mutate(across("shops_closed", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
@@ -49,7 +55,7 @@ restrictions = read.csv("data/restrictions_timeseries/restrictions_summary.csv")
 #   mutate(across("wfh", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
 #   mutate(across("rule_of_6_indoors", ~factor(., levels=c(0,1), labels=c("no","yes")))) %>%
 #   mutate(across("curfew", ~factor(., levels=c(0,1), labels=c("no", "yes")))) %>%
-#   mutate(across("eat_out_to_help_out", ~factor(., levels=c(0,1), labels=c("no","yes")))) 
+#   mutate(across("eat_out_to_help_out", ~factor(., levels=c(0,1), labels=c("no","yes"))))
 
 activity$date <- as.character(activity$date)
 restrictions$date <- as.character(restrictions$date)
@@ -93,43 +99,89 @@ ggplot(
   data_long2 %>% filter(area_name == 'Westminster'),
   aes(x = restriction, y = value, fill = Description)
 ) +
-  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  geom_bar(stat = "identity",
+           position = "dodge",
+           width = 0.7) +
   labs(title = "Change") +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  facet_wrap(~Description) 
+  facet_wrap( ~ Description)
 
 # Crime -------------------------------------------------------------------------------------------------------------------------------
-# crime21 = read_excel("data/crime/MPS Use of Force - FY20-21.xlsx", na = "NA")
-# crime20 = read_excel("data/crime/MPS Use of Force - FY19-20.xlsx", na = "NA")
-# crime19 = read_excel("data/crime/MPS Use of Force - FY18-19.xlsx", na = "NA")
-# 
-# crime21 <- crime21[-c(59:271)] # basically dropping plenty of rather worthless and uninteresting columns, please forgive me Lord Morzy
-# crime20 <- crime20[-c(59:271)]
-# crime19 <- crime19[-c(59:269)]
-# 
-# crime = bind_rows(crime21, crime20, crime19) # ah yes, the final database to visualize
-# 
-# names(crime) <- sub("Incident Location: ", "", names(crime)) # remove annoying prefixes
-# names(crime) <- sub("Impact Factor: ", "Cause ", names(crime)) # change prefix
-# names(crime) <- sub("Reason for Force: ", "Reason for force ", names(crime)) # change prefix
-# names(crime) <- gsub(" ", "_", names(crime)) # substitute " " with "_"
-# names(crime) <- tolower(names(crime)) 
+crime21 = read_excel("data/crime/MPS Use of Force - FY20-21.xlsx", na = "NA")
+crime20 = read_excel("data/crime/MPS Use of Force - FY19-20.xlsx", na = "NA")
+crime19 = read_excel("data/crime/MPS Use of Force - FY18-19.xlsx", na = "NA")
+
+crime21 <-
+  crime21[-c(59:271)] # basically dropping plenty of rather worthless and uninteresting columns, please forgive me Lord Morzy
+crime20 <- crime20[-c(59:271)]
+crime19 <- crime19[-c(59:269)]
+
+crime = bind_rows(crime21, crime20, crime19) # ah yes, the final database to visualize
+
+
+names(crime) <-
+  sub("Incident Location: ", "", names(crime)) # remove annoying prefixes
+names(crime) <-
+  sub("Impact Factor: ", "Cause ", names(crime)) # change prefix
+names(crime) <-
+  sub("Reason for Force: ", "Reason for force ", names(crime)) # change prefix
+names(crime) <-
+  gsub(" ", "_", names(crime)) # substitute " " with "_"
+names(crime) <- tolower(names(crime))
 
 # below code: transform crime dataframe so that it has column 'place' with values, i.e street/highway, then removes rows, which do not
-# correspond to place
-# crime_long <- crime %>%
-#   gather(place, value, 'street/highway':other)
-# crime_long <- crime_long[!(crime_long$value == "No"),]
+# correspond to place. It can be done safely, as these variables are one-hot encoded (only one place for each intervention)
+crime_long <- crime %>%
+  gather(place, value, 'street/highway':other)
+crime_long <- crime_long[!(crime_long$value == "No"), ]
+crime <-
+  select(crime_long,-c('value')) # ogólnie to nie trwa tak długo (może moje R miało jakiś problem za pierwszym razem XD),
+# więc można to chyba zostawić - bo ta połączona csv nie mieści się do gita
+crime <- select(crime,-c('threatenedwithweapon')) # too many NA's
+# no ogólnie na razie nie umiem zmienić tylko kolumn Yes/No, także roboczo zmieniłem tylko część xD
+
+crime %>%
+  mutate(effective_1 = ifelse(effective_1 == "Yes", 1, 0)) %>%
+  mutate(effective_2 = ifelse(effective_2 == "Yes", 1, 0)) %>%
+  mutate(effective_3 = ifelse(effective_3 == "Yes", 1, 0)) %>%
+  mutate(effective_4 = ifelse(effective_4 == "Yes", 1, 0)) %>%
+  mutate(effective_5 = ifelse(effective_5 == "Yes", 1, 0)) %>% 
+  mutate(assaultedbysubject = ifelse(assaultedbysubject == "Yes", 1, 0))
+
+crime$incidentdate <- as.Date(crime$incidentdate)
+crime$year <- format(crime$incidentdate, "%Y") 
 
 
-crime = read.csv("data/crime/crimeProcessed.csv")
-crime <- select(crime, -c('value'))
+ggplot(crime %>% filter(borough == "Bexley"), aes(y = mainduty, x = primaryconduct, color = assaultedbysubject)) +
+  geom_count() + 
+  theme_classic() + 
+  facet_wrap(~year) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# to nie jest dobra ścieżka
-crime_long <- crime_long %>%
-  gather(cause, value, cause_possesion_of_a_weapon:cause_other)
-crime_long <- crime_long[!(crime_long$value == "No"),]
-crime_long <- select(crime_long, -c('value'))
+ggplot(crime %>% filter(borough == "Sutton"), aes(x = place, y = tactic_1, color = effective_1)) +
+  geom_jitter() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# write.csv(crime_long, "data/crime/crimeProcessed.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
