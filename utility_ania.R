@@ -9,7 +9,10 @@ library(shinyWidgets)
 library(dplyr)
 library(tidyr)
 library(ggpubr)
-
+library(RColorBrewer)
+library(rcartocolor)
+library(reactable)
+library(htmltools)
 
 covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv"))
 covid.london_england = covid.london_england %>% as_tibble() %>% rename(area_name = areaName) %>% 
@@ -81,6 +84,23 @@ ldn_f[is.na(ldn_f)] = 0
 england_f[is.na(england_f)] = 0
 covid.comparison[is.na(covid.comparison)] = 0
 
+england_f = england_f %>% filter(area_name != "London")
+
+covid.deaths = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--deaths/aa17aaa1-2b9e-4e60-a0ee-5d8bbac31486/nhse_total_deaths_by_region.csv"))
+covid.deaths = mutate(covid.deaths, month = substring(date,1,7))
+covid.deaths = covid.deaths %>% rename( area_name = nhs_england_region) %>%
+  rename(`total deaths` = cumulative_deaths_total) %>% rename(`deaths with positive test` = cumulative_deaths_with_positive_test) %>%
+  rename(`deaths without positive test` = cumulative_deaths_without_positive_test)
+covid.deaths = covid.deaths %>% select(c("area_name","month", "total deaths", "deaths with positive test","deaths without positive test"))
+covid.deaths = covid.deaths %>% group_by(area_name, month) %>%
+  summarize_each(funs(max))
+covid.deaths$area_name[covid.deaths$area_name != "London"] = "Rest of England"
+covid.deaths = covid.deaths %>% group_by(area_name, month) %>%
+  summarize_each(funs(sum))
+covid.deaths_london = covid.deaths %>% filter(area_name == "London") %>% ungroup() %>% select(-area_name)
+covid.deaths_rest = covid.deaths %>% filter(area_name =="Rest of England") %>% ungroup() %>% select(-area_name)
+data.deaths_london = covid.deaths_london %>% select(c("month", "total deaths"))
+data.deaths_rest = covid.deaths_rest %>% select(c("month", "total deaths"))
 
 
 ui <- dashboardPage(
@@ -109,6 +129,8 @@ ui <- dashboardPage(
       )
     )))
 
+carto_pal(name="Emrld")
+carto_pal(name = "BurgYl")
 
 server <- shinyServer(function(input, output) {
   
@@ -118,11 +140,13 @@ server <- shinyServer(function(input, output) {
                 textposition = 'inside',
                 textinfo = 'label',
                 insidetextfont = list(color = '#FFFFFF'),
+                marker = list(colors = c("#217a79","#9c3f5d"),
+                              line = list(color = '#FFFFFF', width = 1)),
                 showlegend = F)
     g %>% event_register("plotly_click")
     
   })
-  
+ 
   output$plot <- renderUI({
     
     d = event_data("plotly_click")$pointNumber
@@ -133,10 +157,23 @@ server <- shinyServer(function(input, output) {
                        aes(customdata = area_name, group = group, x = long, y = lat, fill = .data[[input$date]],
                        )) +
             geom_polygon(color = "black") +
-            scale_fill_continuous(limits = c(down_ldn,up_ldn)) +
-            coord_equal() + theme_transparent() 
+            scale_fill_gradientn(colors = colorRampPalette(carto_pal(name = "Emrld"))(50),
+                                  limits = c(down_ldn,up_ldn)) +
+            coord_equal() + theme_transparent()
           map = ggplotly(map)
           map
+        })
+        output$dt <- renderReactable({
+          table = reactable(data.deaths_london, searchable = T, highlight = T,
+                    showSortable = T, compact = T,
+                    columns = list(
+                      `total deaths` = colDef(details = function(index){
+                        data = covid.deaths_london[covid.deaths_london$month == data.deaths_london$month[index],]
+                        data = data %>% select(`deaths with positive test`, `deaths without positive test`)
+                        reactable(data, outlined = T)
+                      })
+                    ))
+          table
         })
       }
       else{
@@ -145,12 +182,25 @@ server <- shinyServer(function(input, output) {
                        aes(customdata = area_name, group = group, x = long, y = lat, fill = .data[[input$date]],
                        )) +
             geom_polygon(color = "black") +
-            scale_fill_continuous(limits = c(down_eng,up_eng)) +
+            scale_fill_gradientn(colors = colorRampPalette(carto_pal(name = "BurgYl"))(50),
+                                 limits = c(down_eng,up_eng)) +
             coord_equal() + theme_transparent() 
           
           map = ggplotly(map)
           map
           
+        })
+        output$dt <- renderReactable({
+          table = reactable(data.deaths_rest, searchable = T, highlight = T,
+                    showSortable = T, compact = T,
+                    columns = list(
+                      `total deaths` = colDef(details = function(index){
+                        data = covid.deaths_rest[covid.deaths_rest$month == data.deaths_rest$month[index],]
+                        data = data %>% select(`deaths with positive test`, `deaths without positive test`)
+                        reactable(data, outlined = T)
+                      })
+                    ))
+         table
         })
       }
       box(width = 12, 
@@ -159,7 +209,8 @@ server <- shinyServer(function(input, output) {
                           choices = months,
                           selected = months[1],
                           animate = T),
-          plotlyOutput("map")
+          plotlyOutput("map"),
+          reactableOutput("dt")
       )
       
     }
