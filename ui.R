@@ -1,5 +1,12 @@
 library(shiny)
 library(shinydashboard)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+library(ggpubr)
+library(forcats)
+library(ggridges)
 
 # https://fontawesome.com/icons?d=gallery&p=2&q=chart 
 # TODO: go here and find cool chart icons instead of "th" below
@@ -21,7 +28,16 @@ dashboardPage(
     tabItem(tabName = "start",
             h3("Add random text or something idk")),
     tabItem(tabName = "1", 
-            h3("test table"),
+            h3("TODO: add title here"),
+            selectInput("checkbox1", "Description",
+                               choices = c("Residential" = "residential",
+                                 "Retail and recreation" = "retail_and_recreation",
+                                 "Gorcery and pharmacy" = "grocery_and_pharmacy",
+                                 "Parks" = "parks",
+                                 "Transit stations" = "transit_stations",
+                                 "Workplaces" = "workplaces"), selected = "residental",
+                        multiple = TRUE),
+            plotlyOutput("funnyBoxPlots"),
             dataTableOutput("table")),
     tabItem(tabName = "2",
             h3("Add visualization")),

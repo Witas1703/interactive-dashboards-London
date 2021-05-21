@@ -7,19 +7,6 @@ library(ggridges)
 library(readxl)
 library(httr) # reading xlsx from URL
 library(plotly)
-# Animals ------------------------------------------------------------------------------------------------------------------------------------
-animals = read.csv(
-  url("https://data.london.gov.uk/download/animal-rescue-incidents-attended-by-lfb/8a7d91c2-9aec-4bde-937a-3998f4717cd8/Animal%20Rescue%20incidents%20attended%20by%20LFB%20from%20Jan%202009.csv"),
-  header = TRUE,
-  na.strings = c("NULL")
-)
-animals = as.data.frame(sapply(animals, tolower)) # change all records into lowercase (there are same words written in CAPITAL and lowercase)
-animals = select(animals, -c("IncidentNumber", "FinYear", "TypeOfIncident")) # drop useless columns
-animals <-
-  animals[!grepl("unknown ", animals$AnimalGroupParent),] # removing records with unknown animal type
-
-
-
 
 # Activity -------------------------------------------------------------------------------------------------------------------------------------
 activity = read.csv(url("https://data.london.gov.uk/download/google-mobility-by-borough/26d5821b-fcb6-4aae-af73-ee0596942d16/google_activity_by_London_Borough.csv"))
@@ -64,10 +51,21 @@ restrictions$date <- as.character(restrictions$date)
 
 data_long2 <-
   left_join(data_long, restrictions, by = c("date" = "date"))
-data_long2 <- data_long2 %>% fill(restriction)
-data_long2 <- data_long2 %>% mutate(
-  restriction = fct_relevel(
+data_long2 <- data_long2 %>% 
+  fill(restriction:eat_out_to_help_out) 
+
+data_long2$restriction <- as.character(data_long2$restriction)
+data_long2$restriction <- replace_na(data_long2$restriction, "None")
+
+data_long2$source <- as.character(data_long2$source)
+data_long2$source <- replace_na(data_long2$source, "None")
+
+data_long2[, 8:17][is.na(data_long2[, 8:17])] <- 0
+
+data_long2 <- data_long2%>% 
+  mutate(restriction = fct_relevel(
     restriction,
+    "None",
     "Work from home advised",
     "Pubs and hospitality close",
     "Schools close",
@@ -91,105 +89,38 @@ data_long2 <- data_long2 %>% mutate(
     "Roadmap out of lockdown: Step 1",
     "Roadmap out of lockdown: Step 2",
     "Roadmap out of lockdown: Step 3"
-  )
-)
+  )) 
 
 
-# TODO: change X axis so that it is more readable
-# TODO: change labels
-# TODO: change values to %, and show negative (?)
 # Assumption is that a user can choose a borough, for which he or she will see the change
-# of course, mouseover should show exact value and so on
-
 # can be shown with the table of restrictions timeseries
-p <- ggplot(
-  data_long2 %>% filter(area_name == 'Westminster'),
-  aes(x = restriction, y = value, fill = Description)) +
-  geom_bar(stat = "identity",
-           position = "dodge",
-           width = 0.7) +
-  labs(title = "Change") +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  facet_wrap( ~ Description)
-ggplotly(p)
+unique(data_long2$Description)
 
-plot_ly(data = (data_long2 %>% filter(area_name == "Westminster")), type = "bar", x = ~restriction, y = ~value, color = ~Description)
-
-data_long2 %>% 
-  filter(area_name == "Westminster") %>%
-  group_by(Description) %>%
-  do(p = plot_ly(., x = ~restriction, y = ~value, color = ~Description, type = "bar", colors = "Dark2")) %>%
-  subplot(nrows = 1, shareX = TRUE, shareY = TRUE)
+target <- c("transit_stations", "residential")
+plot_ly(data = (data_long2 %>% filter(area_name == "Westminster", Description %in% target, )), type = "box", x = ~restriction, y = ~value, color = ~Description)
 
 
-# Crime -------------------------------------------------------------------------------------------------------------------------------
-GET("https://data.london.gov.uk/download/use-of-force/9d266ef1-7376-4eec-bb0d-dfbd2b1a591e/MPS%20Use%20of%20Force%20-%20FY20-21.xlsx", write_disk(tf1 <- tempfile(fileext = ".xlsx")))
-crime21 = read_excel(tf1, na = "NA")
-GET("https://data.london.gov.uk/download/use-of-force/2aa0d839-add7-46c1-a168-e62d33323228/MPS%20Use%20of%20Force%20-%20FY19-20.xlsx", write_disk(tf2 <- tempfile(fileext = ".xlsx")))
-crime20 = read_excel(tf2, na = "NA")
-GET("https://data.london.gov.uk/download/use-of-force/727e768a-a8fe-4c06-bfa3-ac61930bfa78/MPS%20Use%20of%20Force%20-%20FY18-19.xlsx", write_disk(tf3 <- tempfile(fileext = ".xlsx")))
-crime19 = read_excel(tf3, na = "NA")
+# COVID -------------------------------------------------------------------------------------------------------------------
 
-crime21 <-crime21[-c(59:271)] # basically dropping plenty of rather worthless and uninteresting columns, please forgive me Lord Morzy
-crime20 <- crime20[-c(59:271)]
-crime19 <- crime19[-c(59:269)]
+# deaths = read.csv(url('https://data.london.gov.uk/download/coronavirus--covid-19--deaths/d5b73e41-0df8-4379-b460-9b92b7b80cbb/ons_deaths_cqc_by_la.csv'))
+# vaccines = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/438add14-fa98-49bb-bf29-642ee99ae858/nhse_weekly_vaccines_london_england.csv"))
+deaths = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--deaths/aa17aaa1-2b9e-4e60-a0ee-5d8bbac31486/nhse_total_deaths_by_region.csv"))
+vaccines = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/50b79988-1c39-4283-b68e-a126afb6fcbf/nhse_weekly_vaccines_london_ltla.csv"))
+vaccines2 = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/c83673a0-55e2-4b84-9a6b-65fe812c9628/nhse_weekly_vaccines_london_stp.csv"))
+# deaths <- deaths %>% filter(nhs_england_region == "London")
+vaccines <- vaccines[-c(1:2, 7)]
 
-crime = bind_rows(crime21, crime20, crime19) # ah yes, the final database to visualize
+unique(vaccines2$age_band)
+deaths <- deaths %>% select(nhs_england_region == "London")
 
-
-names(crime) <-
-  sub("Incident Location: ", "", names(crime)) # remove annoying prefixes
-names(crime) <-
-  sub("Impact Factor: ", "Cause ", names(crime)) # change prefix
-names(crime) <-
-  sub("Reason for Force: ", "Reason for force ", names(crime)) # change prefix
-names(crime) <-
-  gsub(" ", "_", names(crime)) # substitute " " with "_"
-names(crime) <- tolower(names(crime))
-
-# below code: transform crime dataframe so that it has column 'place' with values, i.e street/highway, then removes rows, which do not
-# correspond to place. It can be done safely, as these variables are one-hot encoded (only one place for each intervention)
-crime_long <- crime %>%
-  gather(place, value, 'street/highway':other)
-crime_long <- crime_long[!(crime_long$value == "No"), ]
-crime <-
-  select(crime_long,-c('value')) # ogólnie to nie trwa tak długo (może moje R miało jakiś problem za pierwszym razem XD),
-# więc można to chyba zostawić - bo ta połączona csv nie mieści się do gita
-crime <- select(crime,-c('threatenedwithweapon')) # too many NA's
-# no ogólnie na razie nie umiem zmienić tylko kolumn Yes/No, także roboczo zmieniłem tylko część xD
-
-crime %>%
-  mutate(effective_1 = ifelse(effective_1 == "Yes", 1, 0)) %>%
-  mutate(effective_2 = ifelse(effective_2 == "Yes", 1, 0)) %>%
-  mutate(effective_3 = ifelse(effective_3 == "Yes", 1, 0)) %>%
-  mutate(effective_4 = ifelse(effective_4 == "Yes", 1, 0)) %>%
-  mutate(effective_5 = ifelse(effective_5 == "Yes", 1, 0)) %>% 
-  mutate(assaultedbysubject = ifelse(assaultedbysubject == "Yes", 1, 0))
-
-crime$incidentdate <- as.Date(crime$incidentdate)
-crime$year <- format(crime$incidentdate, "%Y") 
-
-
-ggplot(crime %>% filter(borough == "Bexley"), aes(y = mainduty, x = primaryconduct, color = assaultedbysubject)) +
-  geom_count() + 
-  theme_classic() + 
-  facet_wrap(~year) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-ggplot(crime %>% filter(tactic_1 == "Non-compliant handcuffing"), aes(x = place, y = primaryconduct, color = effective_1)) +
-  geom_jitter() + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  facet_wrap(~year)
-
-
-
-
-
-
-
-
-
+ggplot(deaths, aes(date, new_deaths_with_positive_test)) +
+  geom_col() +
+  scale_x_discrete(breaks = levels(deaths$date)[c(T, rep(F, 9))]) + 
+  theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 0.5,
+    hjust = 1
+  )) 
 
 
 
