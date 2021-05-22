@@ -7,6 +7,7 @@ library(tidyr)
 library(ggpubr)
 library(forcats)
 library(ggridges)
+library(shinyWidgets)
 
 # https://fontawesome.com/icons?d=gallery&p=2&q=chart 
 # TODO: go here and find cool chart icons instead of "th" below
@@ -40,7 +41,16 @@ dashboardPage(
             plotlyOutput("funnyBoxPlots"),
             dataTableOutput("table")),
     tabItem(tabName = "2",
-            h3("Add visualization")),
+            h3("Title"),
+            fluidRow(
+              box(width = 12,
+                  uiOutput("slider"),
+                  plotlyOutput("pie")
+              )
+            ),
+            fluidRow(
+              uiOutput("plot")
+            )),
     tabItem(tabName = "3",
             h3("Add visualization")),
     tabItem(tabName = "4",
