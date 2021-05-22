@@ -9,13 +9,21 @@ library(ggridges)
 library(rgdal)
 library(sp)
 library(rgeos)
+<<<<<<< HEAD
 library(shinydashboard)
 library(inlmisc)
 library(shinyWidgets)
+=======
+library(inlmisc)
+>>>>>>> c6f6a449803926cc495f65705422906c31bb9a0c
 library(RColorBrewer)
 library(rcartocolor)
 library(reactable)
 library(htmltools)
+<<<<<<< HEAD
+=======
+library(shinyWidgets)
+>>>>>>> c6f6a449803926cc495f65705422906c31bb9a0c
 
 # ----------------------------------------- Ania's chad code ---------------------------------------------------------------------
 covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv"))
@@ -200,9 +208,115 @@ shinyServer(function(input, output) {
   output$funnyBoxPlots = renderPlotly(plot_ly(data = (data_long2 %>% filter(Description %in% input$checkbox1)), type = "box", x = ~restriction, y = ~value, color = ~Description))
   output$table = renderDataTable({restrictionsTable})
   
+<<<<<<< HEAD
   output$pie <- renderPlotly({
     g = plot_ly(covid.comparison, labels = ~area_name, 
                 values = ~.data[[input$month]], type = "pie",
+=======
+  
+  #-------------------- maps data -------------------------------------------------------------------------------------------------
+  covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv"))
+  covid.london_england = covid.london_england %>% as_tibble() %>% rename(area_name = areaName) %>% 
+    rename(cases = cumCasesBySpecimenDate) %>% select(area_name, date, cases) 
+  covid.london_england = mutate(covid.london_england, month = substring(date,1,7)) %>% select(-date)
+  covid.london_england = covid.london_england %>% group_by(area_name, month) %>%
+    summarize_each(funs(max))
+  
+  covid.comparison = covid.london_england
+  covid.comparison$area_name <- as.character(covid.comparison$area_name)
+  covid.comparison$area_name[covid.comparison$area_name != "London"] = "Rest of England"
+  covid.comparison = covid.comparison %>% group_by(area_name, month) %>%
+    summarize_each(funs(sum)) %>% filter(month != "2020-01")
+  
+  
+  covid.cases = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/151e497c-a16e-414e-9e03-9e428f555ae9/phe_cases_london_boroughs.csv"))
+  covid.cases = mutate(covid.cases, month = substring(date,1,7)) %>% select(-c("date", "new_cases"))
+  covid.cases = covid.cases %>% group_by(month, area_name, area_code) %>% 
+    summarize_each(funs(max)) 
+  
+  
+  ldn = readOGR("data/covid/london", layer = "london")
+  #proj4string(ldn) = CRS("+init=epsg:27700")
+  #ldn.wgs84 = spTransform(ldn, CRS("+init=epsg:4326"))
+  tr1 = ldn@polygons[[33]]@Polygons[[1]]@coords 
+  tr2 = ldn@polygons[[21]]@Polygons[[1]]@coords 
+  new_c = rbind(tr2[1:23,],tr1[6:11,],tr1[1:3,],tr2[24:26,])
+  ldn@polygons[[33]]@Polygons[[1]]@coords = new_c
+  ldn@polygons[[21]]@Polygons[[1]]@coords = new_c
+  
+  borough_and_id = ldn@data %>% as_tibble() %>% mutate(id = as.character(row_number()-1)) %>%
+    select(c("id", "name")) %>% filter(name != "City of London") %>% rename(area_name = name)
+  borough_and_id$area_name <- as.character(borough_and_id$area_name)
+  borough_and_id$area_name[borough_and_id$area_name == "Hackney"] = "Hackney and City of London"
+  
+  ldn_f = fortify(ldn) %>% filter (id != 32)
+  
+  
+  covid.cases = left_join(covid.cases, borough_and_id, by = "area_name")
+  
+  ldn_f = left_join(ldn_f, covid.cases, by="id")
+  
+  
+  
+  
+  england = readOGR("data/covid/england", layer = "eng")
+  england_f = fortify(england)
+  
+  region_and_id = england@data %>% as_tibble() %>% mutate(id = as.character(row_number()-1)) %>%
+    select(c("id", "RGN20NM")) %>% rename(area_name = RGN20NM)
+  
+  covid.eng = covid.london_england
+  covid.eng = left_join(covid.eng, region_and_id, by = "area_name")
+  england_f = left_join(england_f, covid.eng, by="id") %>% rename(total_cases = cases)
+  
+  months = unique(ldn_f$month)[unique(ldn_f$month) %in% unique(england_f$month)]
+  months = months[months %in% unique(covid.comparison$month)]
+  
+  down_ldn = min(ldn_f$total_cases)
+  up_ldn = max(ldn_f$total_cases)
+  down_eng = 0
+  up_eng = max(england_f$total_cases)
+  
+  ldn_f = ldn_f  %>% spread(month,total_cases)
+  england_f = england_f %>% spread(month, total_cases)
+  covid.comparison = covid.comparison %>% spread(month, cases)
+  
+  ldn_f[is.na(ldn_f)] = 0
+  england_f[is.na(england_f)] = 0
+  covid.comparison[is.na(covid.comparison)] = 0
+  
+  england_f = england_f %>% filter(area_name != "London")
+  
+  covid.deaths = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--deaths/aa17aaa1-2b9e-4e60-a0ee-5d8bbac31486/nhse_total_deaths_by_region.csv"))
+  covid.deaths = mutate(covid.deaths, month = substring(date,1,7))
+  covid.deaths = covid.deaths %>% rename( area_name = nhs_england_region) %>%
+    rename(`total deaths` = cumulative_deaths_total) %>% rename(`deaths with positive test` = cumulative_deaths_with_positive_test) %>%
+    rename(`deaths without positive test` = cumulative_deaths_without_positive_test)
+  covid.deaths = covid.deaths %>% select(c("area_name","month", "total deaths", "deaths with positive test","deaths without positive test"))
+  covid.deaths = covid.deaths %>% group_by(area_name, month) %>%
+    summarize_each(funs(max))
+  covid.deaths$area_name[covid.deaths$area_name != "London"] = "Rest of England"
+  covid.deaths = covid.deaths %>% group_by(area_name, month) %>%
+    summarize_each(funs(sum))
+  covid.deaths_london = covid.deaths %>% filter(area_name == "London") %>% ungroup() %>% select(-area_name)
+  covid.deaths_rest = covid.deaths %>% filter(area_name =="Rest of England") %>% ungroup() %>% select(-area_name)
+  data.deaths_london = covid.deaths_london %>% select(c("month", "total deaths"))
+  data.deaths_rest = covid.deaths_rest %>% select(c("month", "total deaths"))
+  
+  #--------------------maps outputs----------------------------------------------------------------------------------------------
+  
+  output$slider <- renderUI({
+    sliderTextInput("month", 
+                    "Select date:", 
+                    choices = months,
+                    selected = months[1],
+                    animate = T)
+  })
+  
+  output$pie <- renderPlotly({
+    g = plot_ly(covid.comparison, source = "pie", labels = ~area_name, 
+                values = covid.comparison[[toString(input$month)]], type = "pie",
+>>>>>>> c6f6a449803926cc495f65705422906c31bb9a0c
                 textposition = 'inside',
                 textinfo = 'label',
                 insidetextfont = list(color = '#FFFFFF'),
@@ -211,11 +325,19 @@ shinyServer(function(input, output) {
                 showlegend = F)
     g %>% event_register("plotly_click")
     
+<<<<<<< HEAD
+=======
+    
+>>>>>>> c6f6a449803926cc495f65705422906c31bb9a0c
   })
   
   output$plot <- renderUI({
     
+<<<<<<< HEAD
     d = event_data("plotly_click")$pointNumber
+=======
+    d = event_data("plotly_click", source = "pie")$pointNumber
+>>>>>>> c6f6a449803926cc495f65705422906c31bb9a0c
     if(!is.null(d)){
       if(d == 0){
         output$map <- renderPlotly({

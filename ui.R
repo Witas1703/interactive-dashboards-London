@@ -6,6 +6,7 @@ library(tidyr)
 library(ggpubr)
 library(forcats)
 library(ggridges)
+<<<<<<< HEAD
 library(rgdal)
 library(sp)
 library(rgeos)
@@ -16,6 +17,9 @@ library(RColorBrewer)
 library(rcartocolor)
 library(reactable)
 library(htmltools)
+=======
+library(shinyWidgets)
+>>>>>>> c6f6a449803926cc495f65705422906c31bb9a0c
 
 # https://fontawesome.com/icons?d=gallery&p=2&q=chart 
 # TODO: go here and find cool chart icons instead of "th" below
@@ -49,6 +53,7 @@ dashboardPage(
             plotlyOutput("funnyBoxPlots"),
             dataTableOutput("table")),
     tabItem(tabName = "2",
+<<<<<<< HEAD
             h3("plz work"),
             fluidRow(
               box(width = 12,
@@ -66,6 +71,12 @@ dashboardPage(
                                   # choices = months,
                                   # selected = months[1],
                                   animate = T),
+=======
+            h3("Title"),
+            fluidRow(
+              box(width = 12,
+                  uiOutput("slider"),
+>>>>>>> c6f6a449803926cc495f65705422906c31bb9a0c
                   plotlyOutput("pie")
               )
             ),
