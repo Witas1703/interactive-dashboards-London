@@ -7,6 +7,8 @@ library(ggridges)
 library(readxl)
 library(httr) # reading xlsx from URL
 library(plotly)
+library(ggridges)
+library(waffle)
 
 # Activity -------------------------------------------------------------------------------------------------------------------------------------
 activity = read.csv(url("https://data.london.gov.uk/download/google-mobility-by-borough/26d5821b-fcb6-4aae-af73-ee0596942d16/google_activity_by_London_Borough.csv"))
@@ -102,36 +104,63 @@ plot_ly(data = (data_long2 %>% filter(area_name == "Westminster", Description %i
 
 # COVID -------------------------------------------------------------------------------------------------------------------
 
-# deaths = read.csv(url('https://data.london.gov.uk/download/coronavirus--covid-19--deaths/d5b73e41-0df8-4379-b460-9b92b7b80cbb/ons_deaths_cqc_by_la.csv'))
-# vaccines = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/438add14-fa98-49bb-bf29-642ee99ae858/nhse_weekly_vaccines_london_england.csv"))
-deaths = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--deaths/aa17aaa1-2b9e-4e60-a0ee-5d8bbac31486/nhse_total_deaths_by_region.csv"))
-vaccines = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/50b79988-1c39-4283-b68e-a126afb6fcbf/nhse_weekly_vaccines_london_ltla.csv"))
-vaccines2 = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--cases/c83673a0-55e2-4b84-9a6b-65fe812c9628/nhse_weekly_vaccines_london_stp.csv"))
-# deaths <- deaths %>% filter(nhs_england_region == "London")
-vaccines <- vaccines[-c(1:2, 7)]
+# cumulative_vaccines_url <- url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&areaCode=E12000007&metric=cumPeopleVaccinatedCompleteByVaccinationDate&format=csv")
+# cumulative_vaccines <- read.csv(cumulative_vaccines_url, stringsAsFactors = FALSE)
+# 
+# daily_fully_vaccinated_url <- url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&areaCode=E12000007&metric=newPeopleVaccinatedCompleteByVaccinationDate&format=csv")
+# daily_fully_vaccinated <- read.csv(daily_fully_vaccinated_url, stringsAsFactors = FALSE)
+# 
+# vaccines <- bind_cols(daily_fully_vaccinated[4:5], cumulative_vaccines[5])
+# names(vaccines) <- c("date", "newPeopleCompletlyVaccinated", "cumulativeCompleteVaccinations")
+# 
+# cases_url <- url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&areaCode=E12000007&metric=newCasesBySpecimenDateAgeDemographics&format=csv")
+# cases <- read.csv(cases_url, stringsAsFactors = FALSE)
+# 
+# cases <- cases[4:8]
+# cases <- cases %>% filter(age != "unassigned" & age != "60+" & age != "00_59") 
+# 
+# for (i in 1:length(cases$age)) {
+#   age = cases$age[i]
+#   if(age == "00_04" | age == "05_09"){
+#     cases$age[i] = "0-9"
+#   } else if (age == "10_14" | age == "15_19"){
+#     cases$age[i] = "10-19"
+#   } else if (age == "20_24" | age == "25_29"){
+#     cases$age[i] = "20-29"
+#   } else if (age == "30_34" | age == "35_39"){
+#     cases$age[i] = "30-39"
+#   } else if (age == "40_44" | age == "45_49"){
+#     cases$age[i] = "40-49"
+#   } else if (age == "50_54" | age == "55_59"){
+#     cases$age[i] = "50-59"
+#   } else if (age == "60_64" | age == "65_69"){
+#     cases$age[i] = "60-69"
+#   } else {
+#     cases$age[i] = "69+"
+#   }
+# }
+# 
+# combined <- left_join(cases, vaccines, by = 'date') %>% 
+#   mutate_at(c(6:7), ~replace(., is.na(.), 0)) 
+# 
+# plt1 <- ggplot(combined, aes(fill = age, x = date, y = cases)) +
+#   geom_bar(position = "stack", stat = "identity") 
 
-unique(vaccines2$age_band)
-deaths <- deaths %>% select(nhs_england_region == "London")
+  
+# -----------------------------------------------------------------------------------------------------------------
+url <- "https://data.london.gov.uk/download/coronavirus--covid-19--cases/50b79988-1c39-4283-b68e-a126afb6fcbf/nhse_weekly_vaccines_london_ltla.csv"
+vaccines <- read.csv(url, stringsAsFactors = FALSE)  
 
-ggplot(deaths, aes(date, new_deaths_with_positive_test)) +
-  geom_col() +
-  scale_x_discrete(breaks = levels(deaths$date)[c(T, rep(F, 9))]) + 
-  theme(axis.text.x = element_text(
-    angle = 45,
-    vjust = 0.5,
-    hjust = 1
-  )) 
+vaccines <- vaccines %>% select(-one_of("ltla_code", "percent_vaccine"))
 
+tmp <- vaccines %>% group_by(ltla_name) %>% summarise(last_date = max(end_date))
 
+# filtering so that only latest result for each age group and borough are left
+latestVaccines <- vaccines %>% left_join(tmp, by = "ltla_name") %>% filter(end_date >= last_date) %>% select(-one_of("start_date", "last_date", "end_date"))
+# latestVaccines$percent <- latestVaccines$vaccines / latestVaccines$population
 
+# w shiny po prostu będzie to wybierał użytkownik, tak to ja po prostu hard koduję, żeby łatwiej sprawdzać
+helper <- latestVaccines %>% filter(ltla_name == "Camden" & age_band == "45-49") %>% select(-one_of("ltla_name", "age_band"))
 
-
-
-
-
-
-
-
-
-
+waffle(c(`1st dose` = helper$vaccines[1] - helper$vaccines[2], `2nd dose` = helper$vaccines[2], `unvaccinated` = helper$population[1] - helper$vaccines[1])/100)
 
