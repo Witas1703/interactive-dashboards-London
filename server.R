@@ -103,6 +103,8 @@ shinyServer(function(input, output) {
       "Roadmap out of lockdown: Step 3"
     )) 
   
+  
+  
   # -------------------------------- vaccinations ---------------------------------------------------------------------------------------------------------------------------------
   url <- "https://data.london.gov.uk/download/coronavirus--covid-19--cases/50b79988-1c39-4283-b68e-a126afb6fcbf/nhse_weekly_vaccines_london_ltla.csv"
   vaccines <- read.csv(url, stringsAsFactors = FALSE)  
@@ -121,28 +123,40 @@ shinyServer(function(input, output) {
   output$selectAgeGroup <- renderUI({
     selectInput("ageInput", "Choose age band: ", choices = unique(latestVaccines$age_band), selected = "Under 40", multiple = FALSE)
   })
-
-  d <- reactive({
-    filtered <- latestVaccines %>% filter(ltla_name == input$boroughInput) %>% filter(age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
-  })
+  
   # --------------------- output rendering -------------------------------------------------------------------------------------------
-  output$funnyBoxPlots = renderPlotly({
-    plot_ly(data = (data_long2 %>% filter(Description %in% input$checkbox1)), 
-            type = "box", x = ~restriction, y = ~value, color = ~Description)})
-  
-  output$table = renderDataTable({restrictionsTable})
-  
-  output$wafflePlot = renderPlot({
-    helper <- d()
-    waffle(c(`1st dose` = helper$vaccines[1] - helper$vaccines[2], `2nd dose` = helper$vaccines[2], `unvaccinated` = helper$population[1] - helper$vaccines[1])/(1000))
+  output$funnyBoxPlots = renderPlotly(plot_ly(data = (data_long2 %>% filter(Description %in% input$checkbox1)), 
+                                              type = "box", x = ~restriction, y = ~value, color = ~Description,
+                                              colors = c("#217a79",
+                                                         "#ffac1e",
+                                                         "#12063d",
+                                                         "#e64910",
+                                                         "#40a55d",
+                                                         "#9c3f5d")[1:length(input$checkbox1)]
+  ))
+  output$table = renderReactable({
+    table = reactable(restrictionsTable, searchable = T, highlight = T,
+                      showSortable = T, compact = T)
+    table
   })
-
-  output$percents <- renderText({
-    helper <- d()
+  output$wafflePlot = renderPlot({
+    helper <- latestVaccines %>% filter(ltla_name == input$boroughInput & age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
+    waffle(c(`1st dose` = helper$vaccines[1] - helper$vaccines[2], `2nd dose` = helper$vaccines[2], `unvaccinated` = helper$population[1] - helper$vaccines[1])/(1000),
+           colors = c("#12063d", "#40a55d", "#afafaf"))
+  })
+  
+  
+  output$percents1 <- renderText({
+    helper <- latestVaccines %>% filter(ltla_name == input$boroughInput & age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
     first <- round((((helper$vaccines[1] - helper$vaccines[2])/helper$population[1]) * 100),2)
+    paste("1st dose: ", as.character(first),"% vaccinated")
+  })
+  
+  output$percents2 <- renderText({
+    helper <- latestVaccines %>% filter(ltla_name == input$boroughInput & age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
     second <- round(((helper$vaccines[2]/helper$population[1])*100),2)
-    paste("1st dose: ", as.character(first),"% vaccinated; 2nd dose: ",as.character(second),"% vaccinated")
-    })
+    paste("2nd dose: ",as.character(second),"% vaccinated")
+  })
   # ----------------- classification tree -------------------------------------------------------------------------------------------------
   
   symptoms = read.csv("data/corona_tested_individuals_ver_006.english.csv", na.strings = "None", stringsAsFactors = FALSE, check.names = TRUE)
@@ -161,6 +175,55 @@ shinyServer(function(input, output) {
   
   output$decisionTree <- renderPlot({
     fancyRpartPlot(rpart, main="Should you make a COVID test?", sub = "", palettes = c("YlGnBu"))
+  })
+  
+  output$decision <- renderText({
+    test <- data.frame(
+      cough = input$cough,
+      fever = input$fever,
+      sore_throat = input$soreThroat,
+      shortness_of_breath = input$shortnessOfBreath,
+      head_ache = input$headAche,
+      age_60_and_above = input$age,
+      gender = input$gender
+    )
+    # print(test)
+    score = predict(rpart, newdata = test, type = "class")
+    if(grepl(score, "positive") == TRUE) {
+      res <- "You should contact the medical services in order to test yourself"
+    } else if(grepl(score, "negative") == TRUE){
+      res <- "You are probably fine, but you should closely monitor yourself"
+    } else {
+      res <- "Our prediction is inconclusive, it would be best to contact medical services"
+    }
+    res
+  })
+  
+  output$percents2 <- renderText({
+    helper <- latestVaccines %>% filter(ltla_name == input$boroughInput & age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
+    second <- round(((helper$vaccines[2]/helper$population[1])*100),2)
+    paste("2nd dose: ",as.character(second),"% vaccinated")
+  })
+  
+  
+  # ----------------- classification tree -------------------------------------------------------------------------------------------------
+  
+  symptoms = read.csv("data/corona_tested_individuals_ver_006.english.csv", na.strings = "None", stringsAsFactors = FALSE, check.names = TRUE)
+  symptoms <- symptoms %>% 
+    select(-one_of("test_date", "test_indication")) %>%
+    na.omit(symptoms) 
+  
+  symptoms <- symptoms[1:8]
+  symptoms$cough <- ifelse(symptoms$cough == 1, "Yes", "No")
+  symptoms$fever <- ifelse(symptoms$fever == 1, "Yes", "No")
+  symptoms$sore_throat <- ifelse(symptoms$sore_throat == 1, "Yes", "No")
+  symptoms$shortness_of_breath <- ifelse(symptoms$shortness_of_breath == 1, "Yes", "No")
+  symptoms$head_ache <- ifelse(symptoms$head_ache == 1, "Yes", "No")
+  
+  rpart <- rpart(corona_result ~., data = symptoms, method = "class",)
+  
+  output$decisionTree <- renderPlot({
+    fancyRpartPlot(rpart, sub = "", palettes = "YlGnBu")
   })
   
   output$decision <- renderText({
@@ -301,8 +364,10 @@ shinyServer(function(input, output) {
   output$plot <- renderUI({
     
     d = event_data("plotly_click", source = "pie")$pointNumber
+    text = ""
     if(!is.null(d)){
       if(d == 0){
+        text = "London"
         output$map <- renderPlotly({
           map = ggplot(ldn_f, 
                        aes(customdata = area_name, group = group, x = long, y = lat, fill = .data[[input$date]],
@@ -328,6 +393,7 @@ shinyServer(function(input, output) {
         })
       }
       else{
+        text = "England"
         output$map <- renderPlotly({
           map = ggplot(england_f, 
                        aes(customdata = area_name, group = group, x = long, y = lat, fill = .data[[input$date]],
@@ -354,14 +420,20 @@ shinyServer(function(input, output) {
           table
         })
       }
-      box(width = 12, 
-          sliderTextInput("date", 
-                          "Select date:", 
-                          choices = months,
-                          selected = months[1],
-                          animate = T),
-          plotlyOutput("map"),
-          reactableOutput("dt")
+      fluidRow(
+        
+        box(width = 12,
+            h3(paste(" Covid cases in ", text)),
+            sliderTextInput("date", 
+                            "Select date:", 
+                            choices = months,
+                            selected = months[1],
+                            animate = T),
+            plotlyOutput("map")),
+        
+        box(width = 12,
+            h3(paste(" Deaths in ", text)),
+            reactableOutput("dt"))
       )
       
     }
