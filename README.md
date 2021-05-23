@@ -8,4 +8,5 @@ Source of data:
  - https://data.london.gov.uk/dataset/coronavirus--covid-19--cases
  - https://data.london.gov.uk/dataset/coronavirus--covid-19--deaths
  - https://coronavirus.data.gov.uk/details/download
+ - https://github.com/nshomron/covidpred
 
