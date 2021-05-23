@@ -119,3 +119,13 @@ helper <- latestVaccines %>% filter(ltla_name == "Camden" & age_band == "45-49")
 
 waffle(c(`1st dose` = helper$vaccines[1] - helper$vaccines[2], `2nd dose` = helper$vaccines[2], `unvaccinated` = helper$population[1] - helper$vaccines[1])/100)
 
+# --------------------------------------------------------------------------------------------------------------------------------
+
+symptoms = read.csv("data/corona_tested_individuals_ver_006.english.csv", na.strings = "None")
+symptoms <- symptoms %>% 
+  select(-one_of("test_date", "test_indication")) %>%
+  na.omit(symptoms)
+
+ggplot(symptoms, aes())
+
+
