@@ -15,6 +15,8 @@ library(rcartocolor)
 library(reactable)
 library(htmltools)
 library(shinyWidgets)
+library(waffle)
+
 
 
 shinyServer(function(input, output) {
@@ -99,16 +101,33 @@ shinyServer(function(input, output) {
       "Roadmap out of lockdown: Step 3"
     )) 
   
-  # target <- reactive({
-  #   input$checkbox1
-  # })
-  # fig <- plot_ly(data = (data_long2 %>% filter(Description %in% target)), type = "box", x = ~restriction, y = ~value, color = ~Description)
+  # -------------------------------- vaccinations ---------------------------------------------------------------------------------------------------------------------------------
+  url <- "https://data.london.gov.uk/download/coronavirus--covid-19--cases/50b79988-1c39-4283-b68e-a126afb6fcbf/nhse_weekly_vaccines_london_ltla.csv"
+  vaccines <- read.csv(url, stringsAsFactors = FALSE)  
   
+  vaccines <- vaccines %>% select(-one_of("ltla_code", "percent_vaccine"))
+  
+  tmp <- vaccines %>% group_by(ltla_name) %>% summarise(last_date = max(end_date))
+  
+  # filtering so that only latest result for each age group and borough are left
+  latestVaccines <- vaccines %>% left_join(tmp, by = "ltla_name") %>% filter(end_date >= last_date) %>% select(-one_of("start_date", "last_date", "end_date"))
+  
+  output$selectBorough <- renderUI({
+    selectInput("boroughInput", "Choose borough: ",choices = unique(latestVaccines$ltla_name), selected = latestVaccines$ltla_name[1], multiple = FALSE)
+  })
+  
+  output$selectAgeGroup <- renderUI({
+    selectInput("ageInput", "Choose age band: ", choices = unique(latestVaccines$age_band), selected = "Under 40", multiple = FALSE)
+  })
+ 
   
   # --------------------- output rendering -------------------------------------------------------------------------------------------
   output$funnyBoxPlots = renderPlotly(plot_ly(data = (data_long2 %>% filter(Description %in% input$checkbox1)), type = "box", x = ~restriction, y = ~value, color = ~Description))
   output$table = renderDataTable({restrictionsTable})
-  
+  output$wafflePlot = renderPlot({
+    helper <- latestVaccines %>% filter(ltla_name == input$boroughInput & age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
+    waffle(c(`1st dose` = helper$vaccines[1] - helper$vaccines[2], `2nd dose` = helper$vaccines[2], `unvaccinated` = helper$population[1] - helper$vaccines[1])/(1000))
+  })
   
   #-------------------- maps data -------------------------------------------------------------------------------------------------
   covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv"))
