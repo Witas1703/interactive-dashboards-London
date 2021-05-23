@@ -80,6 +80,10 @@ dashboardPage(title = 'COVID in London', skin = "black",
                     )
                  ),
               fluidRow(
+                tags$style(type="text/css",
+                           ".shiny-output-error { visibility: hidden; }",
+                           ".shiny-output-error:before { visibility: hidden; }"
+                ),
                 plotOutput("wafflePlot")
               ),
               fluidRow(
