@@ -321,7 +321,7 @@ shinyServer(function(input, output) {
   
   england_f = england_f %>% filter(area_name != "London")
   
-  covid.deaths = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--deaths/aa17aaa1-2b9e-4e60-a0ee-5d8bbac31486/nhse_total_deaths_by_region.csv"))
+  covid.deaths = read.csv(url("https://data.london.gov.uk/download/coronavirus--covid-19--deaths/aa17aaa1-2b9e-4e60-a0ee-5d8bbac31486/nhse_total_deaths_by_region.csv"), stringsAsFactors =  FALSE)
   covid.deaths = mutate(covid.deaths, month = substring(date,1,7))
   covid.deaths = covid.deaths %>% rename( area_name = nhs_england_region) %>%
     rename(`total deaths` = cumulative_deaths_total) %>% rename(`deaths with positive test` = cumulative_deaths_with_positive_test) %>%
