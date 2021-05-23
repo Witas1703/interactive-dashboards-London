@@ -143,11 +143,6 @@ symptoms$sore_throat <- ifelse(symptoms$sore_throat == 1, "Yes", "No")
 symptoms$shortness_of_breath <- ifelse(symptoms$shortness_of_breath == 1, "Yes", "No")
 symptoms$head_ache <- ifelse(symptoms$head_ache == 1, "Yes", "No")
 
-ggplot(symptoms, aes(x = corona_result)) +
-  geom_bar()
-
-
-
 rpart <- rpart(corona_result ~., data = symptoms, method = "class",)
 
 rpart
@@ -155,13 +150,15 @@ rpart
 fancyRpartPlot(rpart, main="Covid")
 
 test <- data.frame(
-  cough = c("Yes", "No"),
-  fever = c("Yes", "Yes"),
-  sore_throat = c("Yes", "Yes"),
-  shortness_of_breath = c("Yes", "Yes"),
-  head_ache = c("Yes", "No"),
-  age_60_and_above = c("Yes", "No"),
-  gender = c("male", "female")
+  cough = c("Yes"),
+  fever = c("Yes"),
+  sore_throat = c("Yes"),
+  shortness_of_breath = c("Yes"),
+  head_ache = c("Yes"),
+  age_60_and_above = c("Yes"),
+  gender = c("male")
 )
 
-predict(rpart, newdata = test, type = "class")
+score = predict(rpart, newdata = test, type = "class")
+score
+grepl(score, "negative")

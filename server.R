@@ -16,6 +16,8 @@ library(reactable)
 library(htmltools)
 library(shinyWidgets)
 library(waffle)
+library(rattle)
+library(rpart)
 
 
 
@@ -119,10 +121,7 @@ shinyServer(function(input, output) {
   output$selectAgeGroup <- renderUI({
     selectInput("ageInput", "Choose age band: ", choices = unique(latestVaccines$age_band), selected = "Under 40", multiple = FALSE)
   })
-  
 
- 
-  
   # --------------------- output rendering -------------------------------------------------------------------------------------------
   output$funnyBoxPlots = renderPlotly(plot_ly(data = (data_long2 %>% filter(Description %in% input$checkbox1)), type = "box", x = ~restriction, y = ~value, color = ~Description))
   output$table = renderDataTable({restrictionsTable})
@@ -138,6 +137,47 @@ shinyServer(function(input, output) {
     second <- round(((helper$vaccines[2]/helper$population[1])*100),2)
     paste("1st dose: ", as.character(first),"% vaccinated; 2nd dose: ",as.character(second),"% vaccinated")
     })
+  # ----------------- classification tree -------------------------------------------------------------------------------------------------
+  
+  symptoms = read.csv("data/corona_tested_individuals_ver_006.english.csv", na.strings = "None", stringsAsFactors = FALSE, check.names = TRUE)
+  symptoms <- symptoms %>% 
+    select(-one_of("test_date", "test_indication")) %>%
+    na.omit(symptoms) 
+  
+  symptoms <- symptoms[1:8]
+  symptoms$cough <- ifelse(symptoms$cough == 1, "Yes", "No")
+  symptoms$fever <- ifelse(symptoms$fever == 1, "Yes", "No")
+  symptoms$sore_throat <- ifelse(symptoms$sore_throat == 1, "Yes", "No")
+  symptoms$shortness_of_breath <- ifelse(symptoms$shortness_of_breath == 1, "Yes", "No")
+  symptoms$head_ache <- ifelse(symptoms$head_ache == 1, "Yes", "No")
+  
+  rpart <- rpart(corona_result ~., data = symptoms, method = "class",)
+  
+  output$decisionTree <- renderPlot({
+    fancyRpartPlot(rpart, main="Should you make a COVID test?", sub = "", palettes = c("YlGnBu"))
+  })
+  
+  output$decision <- renderText({
+    test <- data.frame(
+      cough = input$cough,
+      fever = input$fever,
+      sore_throat = input$soreThroat,
+      shortness_of_breath = input$shortnessOfBreath,
+      head_ache = input$headAche,
+      age_60_and_above = input$age,
+      gender = input$gender
+    )
+    # print(test)
+    score = predict(rpart, newdata = test, type = "class")
+    if(grepl(score, "positive") == TRUE) {
+      res <- "You should contact the medical services in order to test yourself"
+    } else if(grepl(score, "negative") == TRUE){
+      res <- "You are probably fine, but you should closely monitor yourself"
+    } else {
+      res <- "Our prediction is inconclusive, it would be best to contact medical services"
+    }
+    res
+  })
   
   #-------------------- maps data -------------------------------------------------------------------------------------------------
   covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv"))
