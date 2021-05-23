@@ -9,13 +9,13 @@ library(forcats)
 library(ggridges)
 library(shinyWidgets)
 
-dbHeader <- dashboardHeader(title = "Lodon")
+dbHeader <- dashboardHeader(title = "London")
 dbHeader$children[[2]]$children <-  tags$a(href='https://www.put.poznan.pl/',
                                            tags$img(src='PP_znak_konturowy_RGB.png',height='100%', float = "left"))
 
 # https://fontawesome.com/icons?d=gallery&p=2&q=chart 
 # TODO: go here and find cool chart icons instead of "th" below
-dashboardPage(skin = "black",
+dashboardPage(title = 'COVID in London', skin = "black",
   dbHeader,
   # dashboardHeader(title = "London"),
   dashboardSidebar(
