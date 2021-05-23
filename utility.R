@@ -9,6 +9,7 @@ library(httr) # reading xlsx from URL
 library(plotly)
 library(ggridges)
 library(waffle)
+# library(corrplot)
 
 # Activity -------------------------------------------------------------------------------------------------------------------------------------
 activity = read.csv(url("https://data.london.gov.uk/download/google-mobility-by-borough/26d5821b-fcb6-4aae-af73-ee0596942d16/google_activity_by_London_Borough.csv"))
@@ -121,11 +122,25 @@ waffle(c(`1st dose` = helper$vaccines[1] - helper$vaccines[2], `2nd dose` = help
 
 # --------------------------------------------------------------------------------------------------------------------------------
 
-symptoms = read.csv("data/corona_tested_individuals_ver_006.english.csv", na.strings = "None")
+symptoms = read.csv("data/corona_tested_individuals_ver_006.english.csv", na.strings = "None", stringsAsFactors = FALSE)
 symptoms <- symptoms %>% 
   select(-one_of("test_date", "test_indication")) %>%
-  na.omit(symptoms)
+  na.omit(symptoms) %>%
+  filter(corona_result != "other") 
 
-ggplot(symptoms, aes())
+# symptoms$corona_result <- ifelse(symptoms$corona_result == "positive", 1, 0)
+# symptoms$gender <- ifelse(symptoms$gender == "female", 1, 0) # 1 = female, 0 = male
+# symptoms$age_60_and_above <- ifelse(symptoms$age_60_and_above == "Yes", 1, 0)
+
+# symptoms$cough <- ifelse(symptoms$cough == 1, "Yes", "No")
+symptoms$fever <- ifelse(symptoms$fever == 1, "Yes", "No")
+# symptoms$sore_throat <- ifelse(symptoms$sore_throat == 1, "Yes", "No")
+symptoms$shortness_of_breath <- ifelse(symptoms$shortness_of_breath == 1, "Yes", "No")
+# symptoms$head_ache <- ifelse(symptoms$head_ache == 1, "Yes", "No")
+
+pie(symptoms$cough)
+
+ggplot(symptoms, aes(x = fever, y = shortness_of_breath, color = corona_result)) +
+  geom_smooth()
 
 

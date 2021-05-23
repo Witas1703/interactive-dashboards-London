@@ -119,6 +119,8 @@ shinyServer(function(input, output) {
   output$selectAgeGroup <- renderUI({
     selectInput("ageInput", "Choose age band: ", choices = unique(latestVaccines$age_band), selected = "Under 40", multiple = FALSE)
   })
+  
+
  
   
   # --------------------- output rendering -------------------------------------------------------------------------------------------
@@ -128,6 +130,14 @@ shinyServer(function(input, output) {
     helper <- latestVaccines %>% filter(ltla_name == input$boroughInput & age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
     waffle(c(`1st dose` = helper$vaccines[1] - helper$vaccines[2], `2nd dose` = helper$vaccines[2], `unvaccinated` = helper$population[1] - helper$vaccines[1])/(1000))
   })
+
+  
+  output$percents <- renderText({
+    helper <- latestVaccines %>% filter(ltla_name == input$boroughInput & age_band == input$ageInput) %>% select(-one_of("ltla_name", "age_band"))
+    first <- round((((helper$vaccines[1] - helper$vaccines[2])/helper$population[1]) * 100),2)
+    second <- round(((helper$vaccines[2]/helper$population[1])*100),2)
+    paste("1st dose: ", as.character(first),"% vaccinated; 2nd dose: ",as.character(second),"% vaccinated")
+    })
   
   #-------------------- maps data -------------------------------------------------------------------------------------------------
   covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv"))

@@ -71,6 +71,11 @@ dashboardPage(title = 'COVID in London', skin = "black",
                  ),
               fluidRow(
                 plotOutput("wafflePlot")
+              ),
+              fluidRow(
+                box(width = 12,
+                  textOutput("percents")
+                )
               )
               ),
       tabItem(tabName = "4",
