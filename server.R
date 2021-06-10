@@ -106,20 +106,22 @@ shinyServer(function(input, output) {
   
   
   # -------------------------------- vaccinations ---------------------------------------------------------------------------------------------------------------------------------
-  url <- "https://data.london.gov.uk/download/coronavirus--covid-19--cases/50b79988-1c39-4283-b68e-a126afb6fcbf/nhse_weekly_vaccines_london_ltla.csv"
-  vaccines <- read.csv(url, stringsAsFactors = FALSE)  
-  
+  # THIS LINK STOPPED WORKING:
+  # url <- "https://data.london.gov.uk/download/coronavirus--covid-19--cases/50b79988-1c39-4283-b68e-a126afb6fcbf/nhse_weekly_vaccines_london_ltla.csv"
+  # vaccines <- read.csv(url, stringsAsFactors = FALSE)
+  vaccines <- read.csv('data/vaccines.csv', stringsAsFactors = FALSE)
+
   vaccines <- vaccines %>% select(-one_of("ltla_code", "percent_vaccine"))
-  
+
   tmp <- vaccines %>% group_by(ltla_name) %>% summarise(last_date = max(end_date))
-  
+
   # filtering so that only latest result for each age group and borough are left
   latestVaccines <- vaccines %>% left_join(tmp, by = "ltla_name") %>% filter(end_date >= last_date) %>% select(-one_of("start_date", "last_date", "end_date"))
-  
+
   output$selectBorough <- renderUI({
     selectInput("boroughInput", "Choose borough: ",choices = unique(latestVaccines$ltla_name), selected = "Barnet", multiple = FALSE)
   })
-  
+
   output$selectAgeGroup <- renderUI({
     selectInput("ageInput", "Choose age band: ", choices = unique(latestVaccines$age_band), selected = "Under 40", multiple = FALSE)
   })
@@ -249,7 +251,7 @@ shinyServer(function(input, output) {
   })
   
   #-------------------- maps data -------------------------------------------------------------------------------------------------
-  covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv"))
+  covid.london_england = read.csv(url("https://api.coronavirus.data.gov.uk/v2/data?areaType=region&metric=cumCasesBySpecimenDate&format=csv&release=2021-06-01"))
   covid.london_england = covid.london_england %>% as_tibble() %>% rename(area_name = areaName) %>% 
     rename(cases = cumCasesBySpecimenDate) %>% select(area_name, date, cases) 
   covid.london_england = mutate(covid.london_england, month = substring(date,1,7)) %>% select(-date)
