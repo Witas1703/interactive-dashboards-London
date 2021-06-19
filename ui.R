@@ -59,7 +59,7 @@ dashboardPage(
               fluidPage(
                 theme = shinytheme("yeti"),
                 h1("London during COVID-19"),
-                h5("Anna Przybylowska, 145447 & Witold Taisner, 145459"),
+                h5(""),
                 p(
                   "We created a dashboard describing the pandemic's influence on London. The source code and data sources can be found in our ",
                   a(href = "https://github.com/Witas1703/interactive-dashboards-London", "repository.")
